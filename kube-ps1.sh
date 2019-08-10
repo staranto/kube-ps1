@@ -42,6 +42,11 @@ KUBE_PS1_LAST_TIME=0
 KUBE_PS1_CLUSTER_FUNCTION="${KUBE_PS1_CLUSTER_FUNCTION}"
 KUBE_PS1_NAMESPACE_FUNCTION="${KUBE_PS1_NAMESPACE_FUNCTION}"
 
+KUBE_PS1_KUBECONFIG_MARKER="${KUBECONFIG}"
+KUBE_PS1_MASTER_COLOR="${KUBE_PS1_MASTER_COLOR-green}"
+KUBE_PS1_MASTER_ENABLE="${KUBE_PS1_MASTER_ENABLE:-true}"
+KUBE_PS1_MASTER_FUNCTION="${KUBE_PS1_MASTER_FUNCTION}"
+
 # Determine our shell
 if [ "${ZSH_VERSION-}" ]; then
   KUBE_PS1_SHELL="zsh"
@@ -211,7 +216,7 @@ _kube_ps1_update_cache() {
   if [[ "${KUBECONFIG}" != "${KUBE_PS1_KUBECONFIG_CACHE}" ]]; then
     # User changed KUBECONFIG; unconditionally refetch.
     KUBE_PS1_KUBECONFIG_CACHE=${KUBECONFIG}
-    _kube_ps1_get_context_ns
+    _kube_ps1_get_context_ns_master
     return
   fi
 
@@ -226,6 +231,10 @@ _kube_ps1_update_cache() {
     fi
   done
 
+  if _kube_ps1_file_newer_than "${KUBE_PS1_KUBECONFIG_MARKER}" "${KUBE_PS1_LAST_TIME}"; then
+    _kube_ps1_get_context_ns_master
+    return
+  fi
   return $return_code
 }
 
@@ -237,6 +246,21 @@ _kube_ps1_get_context() {
 
     if [[ ! -z "${KUBE_PS1_CLUSTER_FUNCTION}" ]]; then
       KUBE_PS1_CONTEXT=$($KUBE_PS1_CLUSTER_FUNCTION $KUBE_PS1_CONTEXT)
+    fi
+  fi
+}
+
+_kube_ps1_get_master() {
+  # kubectl config view --minify --output 'jsonpath={.clusters[0].cluster.server}' 
+  #   | sed 's/.*\/\(.*\)\:.*/\1/'
+
+  if [[ "${KUBE_PS1_MASTER_ENABLE}" == true ]]; then
+    KUBE_PS1_MASTER="$(${KUBE_PS1_BINARY} config view --minify --output 'jsonpath={.clusters[0].cluster.server}' | sed 's/.*\/\(.*\)\:.*/\1/' 2>/dev/null)"
+    # Set master to 'N/A' if it is not defined
+    KUBE_PS1_MASTER="${KUBE_PS1_MASTER:-N/A}"
+
+    if [[ ! -z "${KUBE_PS1_MASTER_FUNCTION}" ]]; then
+      KUBE_PS1_MASTER=$($KUBE_PS1_MASTER_FUNCTION $KUBE_PS1_MASTER)
     fi
   fi
 }
@@ -267,6 +291,11 @@ _kube_ps1_get_context_ns() {
 
   _kube_ps1_get_context
   _kube_ps1_get_ns
+}
+
+_kube_ps1_get_context_ns_master() {
+  _kube_ps1_get_context_ns
+  _kube_ps1_get_master
 }
 
 # Set kube-ps1 shell defaults
@@ -353,9 +382,17 @@ kube_ps1() {
     KUBE_PS1+="$(_kube_ps1_color_fg $KUBE_PS1_CTX_COLOR)${KUBE_PS1_CONTEXT}${KUBE_PS1_RESET_COLOR}"
   fi
 
+  # Master
+  if [[ "${KUBE_PS1_MASTER_ENABLE}" == true ]]; then
+    if [[ -n "${KUBE_PS1_DIVIDER}" ]] && [[ "${KUBE_PS1_CONTEXT_ENABLE}" == true ]]; then
+      KUBE_PS1+="${KUBE_PS1_DIVIDER}"
+    fi
+    KUBE_PS1+="$(_kube_ps1_color_fg $KUBE_PS1_MASTER_COLOR)${KUBE_PS1_MASTER}${KUBE_PS1_RESET_COLOR}"
+  fi
+
   # Namespace
   if [[ "${KUBE_PS1_NS_ENABLE}" == true ]]; then
-    if [[ -n "${KUBE_PS1_DIVIDER}" ]] && [[ "${KUBE_PS1_CONTEXT_ENABLE}" == true ]]; then
+    if [[ -n "${KUBE_PS1_DIVIDER}" ]] && ([[ "${KUBE_PS1_CONTEXT_ENABLE}" == true ]] || [[ "${KUBE_PS1_MASTER_ENABLE}" == true ]]); then
       KUBE_PS1+="${KUBE_PS1_DIVIDER}"
     fi
     KUBE_PS1+="$(_kube_ps1_color_fg ${KUBE_PS1_NS_COLOR})${KUBE_PS1_NAMESPACE}${KUBE_PS1_RESET_COLOR}"
