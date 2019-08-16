@@ -24,7 +24,7 @@
 # Override these values in ~/.zshrc or ~/.bashrc
 KUBE_PS1_BINARY="${KUBE_PS1_BINARY:-kubectl}"
 KUBE_PS1_SYMBOL_ENABLE="${KUBE_PS1_SYMBOL_ENABLE:-true}"
-KUBE_PS1_SYMBOL_DEFAULT=${KUBE_PS1_SYMBOL_DEFAULT:-$'\u2388 '}
+KUBE_PS1_SYMBOL_DEFAULT=${KUBE_PS1_SYMBOL_DEFAULT:- }
 KUBE_PS1_SYMBOL_USE_IMG="${KUBE_PS1_SYMBOL_USE_IMG:-false}"
 KUBE_PS1_NS_ENABLE="${KUBE_PS1_NS_ENABLE:-true}"
 KUBE_PS1_CONTEXT_ENABLE="${KUBE_PS1_CONTEXT_ENABLE:-true}"
@@ -216,6 +216,7 @@ _kube_ps1_update_cache() {
   if [[ "${KUBECONFIG}" != "${KUBE_PS1_KUBECONFIG_CACHE}" ]]; then
     # User changed KUBECONFIG; unconditionally refetch.
     KUBE_PS1_KUBECONFIG_CACHE=${KUBECONFIG}
+
     _kube_ps1_get_context_ns_master
     return
   fi
@@ -226,7 +227,7 @@ _kube_ps1_update_cache() {
   for conf in $(_kube_ps1_split : "${KUBECONFIG:-${HOME}/.kube/config}"); do
     [[ -r "${conf}" ]] || continue
     if _kube_ps1_file_newer_than "${conf}" "${KUBE_PS1_LAST_TIME}"; then
-      _kube_ps1_get_context_ns
+      _kube_ps1_get_context_ns_master
       return
     fi
   done
@@ -251,11 +252,9 @@ _kube_ps1_get_context() {
 }
 
 _kube_ps1_get_master() {
-  # kubectl config view --minify --output 'jsonpath={.clusters[0].cluster.server}' 
-  #   | sed 's/.*\/\(.*\)\:.*/\1/'
-
   if [[ "${KUBE_PS1_MASTER_ENABLE}" == true ]]; then
-    KUBE_PS1_MASTER="$(${KUBE_PS1_BINARY} config view --minify --output 'jsonpath={.clusters[0].cluster.server}' | sed 's/.*\/\(.*\)\:.*/\1/' 2>/dev/null)"
+    KUBE_PS1_MASTER="$(${KUBE_PS1_BINARY} config view --minify --output 'jsonpath={.clusters[0].name}' 2>/dev/null)"
+
     # Set master to 'N/A' if it is not defined
     KUBE_PS1_MASTER="${KUBE_PS1_MASTER:-N/A}"
 
