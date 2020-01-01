@@ -46,6 +46,7 @@ KUBE_PS1_KUBECONFIG_MARKER="${KUBECONFIG}"
 KUBE_PS1_MASTER_COLOR="${KUBE_PS1_MASTER_COLOR-green}"
 KUBE_PS1_MASTER_ENABLE="${KUBE_PS1_MASTER_ENABLE:-true}"
 KUBE_PS1_MASTER_FUNCTION="${KUBE_PS1_MASTER_FUNCTION}"
+KUBE_PS1_MAXLEN=15
 
 # Determine our shell
 if [ "${ZSH_VERSION-}" ]; then
@@ -56,6 +57,8 @@ fi
 
 _kube_ps1_init() {
   [[ -f "${KUBE_PS1_DISABLE_PATH}" ]] && KUBE_PS1_ENABLED=off
+
+  [[ -L "${KUBECONFIG}" ]] && KUBE_PS1_KUBECONFIG_MARKER=~/dev/dotfiles/home/.kube/config.rock
 
   case "${KUBE_PS1_SHELL}" in
     "zsh")
@@ -357,6 +360,9 @@ kubeoff() {
 
 # Build our prompt
 kube_ps1() {
+
+  [[ -z "${KUBECONFIG}" ]] && return
+
   [[ "${KUBE_PS1_ENABLED}" == "off" ]] && return
   [[ -z "${KUBE_PS1_CONTEXT}" ]] && [[ "${KUBE_PS1_CONTEXT_ENABLE}" == true ]] && return
 
@@ -386,7 +392,7 @@ kube_ps1() {
     if [[ -n "${KUBE_PS1_DIVIDER}" ]] && [[ "${KUBE_PS1_CONTEXT_ENABLE}" == true ]]; then
       KUBE_PS1+="${KUBE_PS1_DIVIDER}"
     fi
-    KUBE_PS1+="$(_kube_ps1_color_fg $KUBE_PS1_MASTER_COLOR)${KUBE_PS1_MASTER}${KUBE_PS1_RESET_COLOR}"
+    KUBE_PS1+="$(_kube_ps1_color_fg $KUBE_PS1_MASTER_COLOR)${KUBE_PS1_MASTER:0:(${KUBE_PS1_MAXLEN})}${KUBE_PS1_RESET_COLOR}"
   fi
 
   # Namespace
